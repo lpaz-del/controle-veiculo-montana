@@ -1,0 +1,7 @@
+credenciais.json
+.streamlit/secrets.toml
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
