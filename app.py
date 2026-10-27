@@ -15,6 +15,7 @@ st.title("Controle de Veículo Granado")
 
 FUSO_HORARIO = ZoneInfo("America/Sao_Paulo")
 NOME_PLANILHA = "CONTROLE DE UTILIZAÇÃO DO VEÍCULO MONTANA 2026"
+ID_PLANILHA = "1GJ6mor6s3-2CKxU_Rlt9_Dtv-b_G0t5atRW5QY1gZ2c"
 NOME_ABA_POLITICA = "Política de Uso de Veículos"
 
 # Colunas da planilha:
@@ -24,7 +25,7 @@ NOME_ABA_POLITICA = "Política de Uso de Veículos"
 # L DATA/HORA ACEITE | M reservado (sem envio de e-mail por enquanto)
 # N NÍVEL DE COMBUSTÍVEL NA CHEGADA
 
-NOME_ABA_AUTORIZADOS = "Autorizados"
+NOME_ABA_AUTORIZADOS = "Autorizados "  # Espaço final presente no nome real da guia
 OPCAO_MOTORISTA = "Selecione o motorista..."
 OPCAO_COMBUSTIVEL = "Selecione o nível de combustível..."
 NIVEIS_COMBUSTIVEL = [
@@ -59,7 +60,7 @@ def conectar_sheets():
             "credenciais.json", scope
         )
     client = gspread.authorize(creds)
-    planilha = client.open(NOME_PLANILHA)
+    planilha = client.open_by_key(ID_PLANILHA)
     aba_controle = planilha.sheet1
     aba_politica = planilha.worksheet(NOME_ABA_POLITICA)
     aba_autorizados = planilha.worksheet(NOME_ABA_AUTORIZADOS)
