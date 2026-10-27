@@ -22,27 +22,18 @@ NOME_ABA_POLITICA = "Política de Uso de Veículos"
 # F HORA CHEGADA | G KM CHEGADA | H PROBLEMAS SAÍDA
 # I PROBLEMAS RETORNO | J ACEITE POLÍTICA | K VERSÃO POLÍTICA
 # L DATA/HORA ACEITE | M reservado (sem envio de e-mail por enquanto)
+# N NÍVEL DE COMBUSTÍVEL NA CHEGADA
 
-LISTA_MOTORISTAS = [
-    "Selecione o motorista...",
-    "Alberto Barbosa G. da Silva Junior",
-    "Anderson Lameiras",
-    "André Luiz Rossi Genizelli",
-    "Arion Laert Kovalski",
-    "Diego Ceccon",
-    "Dionatan Andrade dos Santos",
-    "Frank Lucian Vosgerau",
-    "Gerardo Baltazar Rojas",
-    "Gonzalo Javier Raspini",
-    "Greice Anunciato",
-    "Idair Sandes Santana",
-    "Lucas Paz Galdino",
-    "Luis Ricardo Filus",
-    "Paulo Roberto Nogueira",
-    "Roberto Siqueira Nawai",
-    "Rogerio da Costa Loprete",
-    "Rogerio Trentin",
-    "Saphi Ailen Lopez Olaizola",
+NOME_ABA_AUTORIZADOS = "Autorizados"
+OPCAO_MOTORISTA = "Selecione o motorista..."
+OPCAO_COMBUSTIVEL = "Selecione o nível de combustível..."
+NIVEIS_COMBUSTIVEL = [
+    OPCAO_COMBUSTIVEL,
+    "Vazio (Reserva)",
+    "Menos de meio Tanque 1/4",
+    "Meio Tanque (1/2)",
+    "Mais de meio Tanque 3/4",
+    "Cheio",
 ]
 
 
@@ -71,7 +62,23 @@ def conectar_sheets():
     planilha = client.open(NOME_PLANILHA)
     aba_controle = planilha.sheet1
     aba_politica = planilha.worksheet(NOME_ABA_POLITICA)
-    return aba_controle, aba_politica
+    aba_autorizados = planilha.worksheet(NOME_ABA_AUTORIZADOS)
+    return aba_controle, aba_politica, aba_autorizados
+
+
+# ==================================================
+# MOTORISTAS AUTORIZADOS
+# ==================================================
+def carregar_motoristas(aba_autorizados):
+    nomes = aba_autorizados.col_values(2)[6:]
+    lista = [OPCAO_MOTORISTA]
+    vistos = set()
+    for valor in nomes:
+        nome = " ".join(str(valor).split())
+        if nome and nome not in vistos and nome != OPCAO_MOTORISTA:
+            vistos.add(nome)
+            lista.append(nome)
+    return lista
 
 
 # ==================================================
@@ -126,7 +133,8 @@ def buscar_saida_pendente(dados):
 # EXECUÇÃO
 # ==================================================
 try:
-    sheet, aba_politica = conectar_sheets()
+    sheet, aba_politica, aba_autorizados = conectar_sheets()
+    LISTA_MOTORISTAS = carregar_motoristas(aba_autorizados)
     dados = sheet.get_all_values()
     politica_texto, versao_politica = carregar_politica(aba_politica)
     linha_pendente, motorista_pendente, index_pendente = buscar_saida_pendente(dados)
@@ -185,7 +193,7 @@ try:
                 submetido_saida = st.form_submit_button("Registrar Saída")
 
                 if submetido_saida:
-                    if motorista == "Selecione o motorista...":
+                    if motorista == OPCAO_MOTORISTA:
                         st.warning("Selecione o motorista.")
                     elif not destino.strip():
                         st.warning("Informe o destino.")
@@ -231,6 +239,7 @@ try:
                 st.text_input("Hora do Retorno", value=agora_retorno.strftime("%H:%M:%S"), disabled=True)
                 km_chegada = st.number_input("KM de Retorno:", min_value=0, step=1)
                 problemas_retorno = st.text_area("Problemas/Avarias constatados no retorno (se houver):")
+                nivel_combustivel = st.selectbox("Nível de Combustível na Chegada", NIVEIS_COMBUSTIVEL)
                 submetido_retorno = st.form_submit_button("Registrar Retorno")
 
                 if submetido_retorno:
@@ -241,15 +250,17 @@ try:
 
                     if km_chegada < km_saida_numero:
                         st.error("O KM de retorno não pode ser menor que o KM de saída.")
+                    elif nivel_combustivel == OPCAO_COMBUSTIVEL:
+                        st.warning("Selecione o nível de combustível na chegada.")
                     else:
                         hora_retorno_oficial = datetime.now(FUSO_HORARIO).strftime("%H:%M:%S")
 
-                        # Atualiza F = hora de chegada e G = KM de chegada.
-                        sheet.update_cell(index_pendente, 6, hora_retorno_oficial)
-                        sheet.update_cell(index_pendente, 7, int(km_chegada))
-
-                        # I = problemas/avarias no retorno; H permanece como observação da saída.
-                        sheet.update_cell(index_pendente, 9, problemas_retorno.strip())
+                        # Atualiza apenas F, G, I e N, preservando as demais colunas.
+                        sheet.batch_update([
+                            {"range": f"F{index_pendente}:G{index_pendente}", "values": [[hora_retorno_oficial, int(km_chegada)]]},
+                            {"range": f"I{index_pendente}", "values": [[problemas_retorno.strip()]]},
+                            {"range": f"N{index_pendente}", "values": [[nivel_combustivel]]},
+                        ], value_input_option="USER_ENTERED")
 
                         st.success("Retorno registrado com sucesso!")
                         st.rerun()
